@@ -1,13 +1,77 @@
-body {
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+
+*, *::before, *::after {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+:root {
+  --primary:        #1a56db;
+  --primary-hover:  #1648c0;
+  --primary-light:  #ebf0fd;
+  --primary-subtle: #f0f4ff;
+
+  --bg:             #f3f5f9;
+  --surface:        #ffffff;
+  --border:         #e4e7ef;
+  --border-subtle:  #f0f2f7;
+
+  --text:           #0f1724;
+  --text-secondary: #5a6478;
+  --text-muted:     #9aa3b4;
+
+  --green:          #059669;
+  --green-bg:       #d1fae5;
+  --red:            #dc2626;
+  --red-bg:         #fee2e2;
+  --amber:          #d97706;
+  --amber-bg:       #fef3c7;
+  --violet:         #7c3aed;
+  --violet-bg:      #ede9fe;
+
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+
+  --shadow-sm: 0 1px 3px rgba(15,23,36,.06), 0 1px 2px rgba(15,23,36,.04);
+  --shadow-md: 0 4px 12px rgba(15,23,36,.08), 0 2px 4px rgba(15,23,36,.04);
+  --shadow-lg: 0 10px 30px rgba(15,23,36,.12), 0 4px 10px rgba(15,23,36,.06);
+
+  --sidebar-width:  228px;
+  --topbar-height:  62px;
+
+  --font-body:    'Plus Jakarta Sans', sans-serif;
+  --font-display: 'Instrument Serif', serif;
 }
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select { font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fade-up { animation: fadeUp 0.4s cubic-bezier(.22,1,.36,1) both; }
+.delay-1 { animation-delay: .05s; }
+.delay-2 { animation-delay: .10s; }
+.delay-3 { animation-delay: .15s; }
+.delay-4 { animation-delay: .20s; }
+.delay-5 { animation-delay: .25s; }
