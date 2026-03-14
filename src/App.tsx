@@ -3,27 +3,24 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import LandlordDashboard from "./pages/LandlordDashboard";
 import TenantDashboard from "./pages/TenantDashboard";
-
-type Screen = "login" | "register" | "landlord-dashboard" | "tenant-dashboard";
+import Profile from "./pages/Profile";
 
 export interface User {
+  id: string;
   name: string;
   email: string;
   role: "landlord" | "tenant";
 }
 
+type Screen = "login" | "register" | "landlord-dashboard" | "tenant-dashboard" | "profile";
+
 function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [user, setUser] = useState<User | null>(null);
 
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    setScreen(loggedInUser.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
-  };
-
-  const handleRegister = (newUser: User) => {
-    setUser(newUser);
-    setScreen(newUser.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
+  const handleLogin = (u: User) => {
+    setUser(u);
+    setScreen(u.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
   };
 
   const handleLogout = () => {
@@ -31,19 +28,42 @@ function App() {
     setScreen("login");
   };
 
-  if (screen === "login")
-    return <Login onLogin={handleLogin} onGoToRegister={() => setScreen("register")} />;
+  const handleRegister = (u: User) => {
+    setUser(u);
+    setScreen(u.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
+  };
 
-  if (screen === "register")
-    return <Register onRegister={handleRegister} onGoToLogin={() => setScreen("login")} />;
-
-  if (screen === "landlord-dashboard" && user)
-    return <LandlordDashboard user={user} onLogout={handleLogout} />;
-
-  if (screen === "tenant-dashboard" && user)
-    return <TenantDashboard user={user} onLogout={handleLogout} />;
-
-  return <Login onLogin={handleLogin} onGoToRegister={() => setScreen("register")} />;
+  return (
+    <>
+      {screen === "login" && (
+        <Login onLogin={handleLogin} onGoToRegister={() => setScreen("register")} />
+      )}
+      {screen === "register" && (
+        <Register onRegister={handleRegister} onGoToLogin={() => setScreen("login")} />
+      )}
+      {screen === "landlord-dashboard" && user && (
+        <LandlordDashboard
+          user={user}
+          onLogout={handleLogout}
+          onGoToProfile={() => setScreen("profile")}
+        />
+      )}
+      {screen === "tenant-dashboard" && user && (
+        <TenantDashboard
+          user={user}
+          onLogout={handleLogout}
+          onGoToProfile={() => setScreen("profile")}
+        />
+      )}
+      {screen === "profile" && user && (
+        <Profile
+          user={user}
+          onBack={() => setScreen(user.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard")}
+          onLogout={handleLogout}
+        />
+      )}
+    </>
+  );
 }
 
 export default App;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { User } from "../App";
+import supabase from "../supabaseClient";
 import "./Auth.css";
 
 interface LoginProps {
@@ -15,23 +16,54 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    // Empty field validation
     if (!email || !password) {
       setError("Please fill in all fields.");
       return;
     }
     if (!email.includes("@")) {
-      setError("Please enter a valid email.");
+      setError("Please enter a valid email address.");
       return;
     }
 
     setLoading(true);
     setError("");
 
-    setTimeout(() => {
-      onLogin({ name: "Theodore Narsico", email, role });
-      setLoading(false);
-    }, 600);
+    try {
+      // Call Supabase Auth API
+      const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (supabaseError) {
+        // Handle specific Supabase error messages
+        if (supabaseError.message.includes("Invalid login credentials")) {
+          setError("Invalid email or password. Please try again.");
+        } else if (supabaseError.message.includes("Too many requests")) {
+          setError("Too many attempts. Please wait a moment and try again.");
+        } else {
+          setError(supabaseError.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+  onLogin({
+    id: data.user.id,
+    name: data.user.user_metadata?.full_name || data.user.email || "User",
+    email: data.user.email || "",
+    role: role,
+  });
+}
+
+    } catch (err) {
+      setError("A server error occurred. Please try again later.");
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -69,6 +101,7 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             <p>Sign in to your RoomTrack account</p>
           </div>
 
+          {/* Role Selector */}
           <div className="form-group">
             <label>I am a</label>
             <div className="role-toggle">
@@ -89,6 +122,7 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             </div>
           </div>
 
+          {/* Email */}
           <div className="form-group">
             <label>Email address</label>
             <input
@@ -99,6 +133,7 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             />
           </div>
 
+          {/* Password */}
           <div className="form-group">
             <label>Password</label>
             <div className="input-wrap">
@@ -118,8 +153,14 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             </div>
           </div>
 
-          {error && <div className="form-error">{error}</div>}
+          {/* Error Message */}
+          {error && (
+            <div className="form-error">
+              ⚠️ {error}
+            </div>
+          )}
 
+          {/* Submit */}
           <button
             className={`btn-submit ${loading ? "loading" : ""}`}
             onClick={handleLogin}

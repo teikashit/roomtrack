@@ -4,6 +4,7 @@ import "./AppLayout.css";
 interface NavItem {
   emoji: string;
   label: string;
+  action?: () => void;
 }
 
 const landlordNav: NavItem[] = [
@@ -27,15 +28,22 @@ interface AppLayoutProps {
   onLogout: () => void;
   children: React.ReactNode;
   activePage?: string;
+  onGoToProfile?: () => void;
 }
 
-function AppLayout({ user, onLogout, children, activePage = "Dashboard" }: AppLayoutProps) {
+function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToProfile }: AppLayoutProps) {
   const navItems = user.role === "landlord" ? landlordNav : tenantNav;
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase();
+
+  const handleNavClick = (label: string) => {
+    if (label === "My Profile" && onGoToProfile) {
+      onGoToProfile();
+    }
+  };
 
   return (
     <div className="app-shell">
@@ -60,7 +68,7 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard" }: AppLa
             <span className="notif-dot" />
           </button>
 
-          <div className="user-chip">
+          <div className="user-chip" onClick={onGoToProfile} style={{ cursor: "pointer" }}>
             <div className="user-chip__info">
               <span className="user-chip__name">{user.name}</span>
               <span className="user-chip__role">
@@ -79,6 +87,8 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard" }: AppLa
               <div
                 key={item.label}
                 className={`nav-item ${activePage === item.label ? "nav-item--active" : ""}`}
+                onClick={() => handleNavClick(item.label)}
+                style={{ cursor: item.label === "My Profile" ? "pointer" : "default" }}
               >
                 <span className="nav-item__icon">{item.emoji}</span>
                 <span>{item.label}</span>
