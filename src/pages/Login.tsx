@@ -11,13 +11,11 @@ interface LoginProps {
 function Login({ onLogin, onGoToRegister }: LoginProps) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole]         = useState<"landlord" | "tenant">("landlord");
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
-    // Empty field validation
     if (!email || !password) {
       setError("Please fill in all fields.");
       return;
@@ -31,14 +29,12 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
     setError("");
 
     try {
-      // Call Supabase Auth API
       const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (supabaseError) {
-        // Handle specific Supabase error messages
         if (supabaseError.message.includes("Invalid login credentials")) {
           setError("Invalid email or password. Please try again.");
         } else if (supabaseError.message.includes("Too many requests")) {
@@ -51,13 +47,22 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
       }
 
       if (data.user) {
-  onLogin({
-    id: data.user.id,
-    name: data.user.user_metadata?.full_name || data.user.email || "User",
-    email: data.user.email || "",
-    role: role,
-  });
-}
+        // Fetch role from profiles table — ignore the toggle
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, full_name")
+          .eq("id", data.user.id)
+          .single();
+
+        const userRole = (profile?.role as "landlord" | "tenant") || "landlord";
+
+        onLogin({
+          id: data.user.id,
+          name: profile?.full_name || data.user.user_metadata?.full_name || data.user.email || "User",
+          email: data.user.email || "",
+          role: userRole,
+        });
+      }
 
     } catch (err) {
       setError("A server error occurred. Please try again later.");
@@ -101,27 +106,6 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             <p>Sign in to your RoomTrack account</p>
           </div>
 
-          {/* Role Selector */}
-          <div className="form-group">
-            <label>I am a</label>
-            <div className="role-toggle">
-              <button
-                type="button"
-                className={`role-btn ${role === "landlord" ? "active" : ""}`}
-                onClick={() => setRole("landlord")}
-              >
-                🏢 Landlord
-              </button>
-              <button
-                type="button"
-                className={`role-btn ${role === "tenant" ? "active" : ""}`}
-                onClick={() => setRole("tenant")}
-              >
-                🏠 Tenant
-              </button>
-            </div>
-          </div>
-
           {/* Email */}
           <div className="form-group">
             <label>Email address</label>
@@ -153,14 +137,12 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             </div>
           </div>
 
-          {/* Error Message */}
           {error && (
             <div className="form-error">
               ⚠️ {error}
             </div>
           )}
 
-          {/* Submit */}
           <button
             className={`btn-submit ${loading ? "loading" : ""}`}
             onClick={handleLogin}

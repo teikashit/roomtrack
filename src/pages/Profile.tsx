@@ -7,9 +7,10 @@ interface ProfileProps {
   user: User;
   onBack: () => void;
   onLogout: () => void;
+  onUpdateUser: (updatedUser: User) => void; 
 }
 
-function Profile({ user, onBack, onLogout }: ProfileProps) {
+function Profile({ user, onBack, onLogout, onUpdateUser }: ProfileProps) {
   const [activeTab, setActiveTab] = useState<"profile" | "password" | "photo">("profile");
 
   // Profile fields
@@ -69,6 +70,10 @@ function Profile({ user, onBack, onLogout }: ProfileProps) {
       setError(err.message);
     } else {
       setMessage("✅ Profile updated successfully!");
+       onUpdateUser({
+    ...user,
+    name: fullName,
+  });
     }
     setLoading(false);
   };

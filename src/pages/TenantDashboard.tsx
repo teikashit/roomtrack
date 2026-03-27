@@ -6,6 +6,8 @@ interface Props {
   user: User;
   onLogout: () => void;
   onGoToProfile: () => void;
+  onGoToRoomManagement?: () => void;
+  onGoToMyRoom?: () => void;
 }
 
 const stats = [
@@ -28,9 +30,16 @@ const activity = [
   { initials: "ED", name: "Emma Davis",   action: "Payment Overdue",     time: "2 days ago",  cls: "action-red"   },
 ];
 
-function TenantDashboard({ user, onLogout, onGoToProfile }: Props) {
+function TenantDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement, onGoToMyRoom }: Props) {
   return (
-    <AppLayout user={user} onLogout={onLogout} activePage="Dashboard" onGoToProfile={onGoToProfile}>
+    <AppLayout
+      user={user}
+      onLogout={onLogout}
+      activePage="Dashboard"
+      onGoToProfile={onGoToProfile}
+      onGoToRoomManagement={onGoToRoomManagement}
+      onGoToMyRoom={onGoToMyRoom}
+    >
       <div className="page-header fade-up">
         <h1 className="page-title">Tenant Dashboard</h1>
         <p className="page-sub">

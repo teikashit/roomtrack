@@ -1,10 +1,11 @@
+import { useState, useEffect } from "react";
 import { User } from "../App";
+import supabase from "../supabaseClient";
 import "./AppLayout.css";
 
 interface NavItem {
   emoji: string;
   label: string;
-  action?: () => void;
 }
 
 const landlordNav: NavItem[] = [
@@ -29,9 +30,11 @@ interface AppLayoutProps {
   children: React.ReactNode;
   activePage?: string;
   onGoToProfile?: () => void;
+  onGoToRoomManagement?: () => void;
+  onGoToMyRoom?: () => void;
 }
 
-function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToProfile }: AppLayoutProps) {
+function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToProfile, onGoToRoomManagement, onGoToMyRoom }: AppLayoutProps) {
   const navItems = user.role === "landlord" ? landlordNav : tenantNav;
   const initials = user.name
     .split(" ")
@@ -39,10 +42,24 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToP
     .join("")
     .toUpperCase();
 
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPhoto = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("photo_url")
+        .eq("id", user.id)
+        .single();
+      if (data?.photo_url) setPhotoUrl(data.photo_url);
+    };
+    fetchPhoto();
+  }, [user.id]);
+
   const handleNavClick = (label: string) => {
-    if (label === "My Profile" && onGoToProfile) {
-      onGoToProfile();
-    }
+    if (label === "My Profile" && onGoToProfile) onGoToProfile();
+    if (label === "Room Management" && onGoToRoomManagement) onGoToRoomManagement();
+    if (label === "My Room" && onGoToMyRoom) onGoToMyRoom();
   };
 
   return (
@@ -75,7 +92,17 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToP
                 {user.role === "landlord" ? "Property Manager" : "Resident"}
               </span>
             </div>
-            <div className="user-chip__avatar">{initials}</div>
+            <div className="user-chip__avatar">
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt="avatar"
+                  style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                />
+              ) : (
+                initials
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -88,7 +115,7 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToP
                 key={item.label}
                 className={`nav-item ${activePage === item.label ? "nav-item--active" : ""}`}
                 onClick={() => handleNavClick(item.label)}
-                style={{ cursor: item.label === "My Profile" ? "pointer" : "default" }}
+                style={{ cursor: ["My Profile", "Room Management", "My Room"].includes(item.label) ? "pointer" : "default" }}
               >
                 <span className="nav-item__icon">{item.emoji}</span>
                 <span>{item.label}</span>

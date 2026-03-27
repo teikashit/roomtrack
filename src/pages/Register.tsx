@@ -22,7 +22,6 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-
     if (!firstName.trim())            e.firstName       = "First name is required.";
     if (!lastName.trim())             e.lastName        = "Last name is required.";
     if (!email.trim())                e.email           = "Email is required.";
@@ -32,21 +31,16 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
     else if (password.length < 6)     e.password        = "Password must be at least 6 characters.";
     if (!confirmPassword)             e.confirmPassword = "Please confirm your password.";
     else if (password !== confirmPassword) e.confirmPassword = "Passwords do not match.";
-
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const handleRegister = async () => {
     setGeneralError("");
-
-    // Run validation first
     if (!validate()) return;
-
     setLoading(true);
 
     try {
-      // Call Supabase Auth API
       const { data, error: supabaseError } = await supabase.auth.signUp({
         email,
         password,
@@ -60,7 +54,6 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
       });
 
       if (supabaseError) {
-        // Handle specific Supabase error messages
         if (supabaseError.message.includes("already registered") ||
             supabaseError.message.includes("User already registered")) {
           setGeneralError("This email is already registered. Please log in instead.");
@@ -78,21 +71,27 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
       }
 
       if (data.user) {
-  // Check if user already existed
-  if (data.user.identities && data.user.identities.length === 0) {
-    setGeneralError("This email is already registered. Please log in instead.");
-    setLoading(false);
-    return;
-  }
+        if (data.user.identities && data.user.identities.length === 0) {
+          setGeneralError("This email is already registered. Please log in instead.");
+          setLoading(false);
+          return;
+        }
 
-  // Successful new registration
-  onRegister({
-    id: data.user.id,
-    name: `${firstName} ${lastName}`,
-    email: email,
-    role: role,
-  });
-}
+        // Save phone, role, full_name to profiles table immediately
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          full_name: `${firstName} ${lastName}`,
+          phone: phone,
+          role: role,
+        });
+
+        onRegister({
+          id: data.user.id,
+          name: `${firstName} ${lastName}`,
+          email: email,
+          role: role,
+        });
+      }
 
     } catch (err) {
       setGeneralError("A server error occurred. Please try again later.");
@@ -226,14 +225,12 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
             </div>
           </div>
 
-          {/* General API Error */}
           {generalError && (
             <div className="form-error">
               ⚠️ {generalError}
             </div>
           )}
 
-          {/* Submit */}
           <button
             className={`btn-submit ${loading ? "loading" : ""}`}
             onClick={handleRegister}
