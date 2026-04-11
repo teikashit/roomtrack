@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { User } from "../App";
-import supabase from "../supabaseClient";
-import "./Auth.css";
+import { User } from "../../App";
+import supabase from "../../supabaseClient";
+import "../login/Auth.css";
 
 interface RegisterProps {
   onRegister: (user: User) => void;
@@ -250,3 +250,4 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
 }
 
 export default Register;
+

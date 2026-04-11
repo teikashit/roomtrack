@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { User } from "../App";
-import supabase from "../supabaseClient";
-import AppLayout from "../components/AppLayout";
+import { User } from "../../App";
+import supabase from "../../supabaseClient";
+import AppLayout from "../../components/AppLayout";
 import "./RoomManagement.css";
 
 interface Room {
@@ -326,3 +326,4 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
 }
 
 export default RoomManagement;
+

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { User } from "../App";
-import supabase from "../supabaseClient";
+import { User } from "../../App";
+import supabase from "../../supabaseClient";
 import "./Profile.css";
 
 interface ProfileProps {
@@ -337,3 +337,4 @@ function Profile({ user, onBack, onLogout, onUpdateUser }: ProfileProps) {
 }
 
 export default Profile;
+

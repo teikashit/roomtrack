@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import LandlordDashboard from "./pages/LandlordDashboard";
-import TenantDashboard from "./pages/TenantDashboard";
-import Profile from "./pages/Profile";
-import RoomManagement from "./pages/RoomManagement";
-import MyRoom from "./pages/MyRoom";
+import Login from "./features/login/Login";
+import Register from "./features/register/Register";
+import LandlordDashboard from "./features/dashboard/LandlordDashboard";
+import TenantDashboard from "./features/dashboard/TenantDashboard";
+import Profile from "./features/profile/Profile";
+import RoomManagement from "./features/roomManagement/RoomManagement";
+import MyRoom from "./features/myRoom/MyRoom";
 import supabase from "./supabaseClient";
 
 export interface User {

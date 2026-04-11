@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { User } from "../App";
-import supabase from "../supabaseClient";
-import AppLayout from "../components/AppLayout";
+import { User } from "../../App";
+import supabase from "../../supabaseClient";
+import AppLayout from "../../components/AppLayout";
 import "./MyRoom.css";
 
 interface Room {
@@ -178,3 +178,4 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) 
 }
 
 export default MyRoom;
+

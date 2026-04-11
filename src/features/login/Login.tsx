@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { User } from "../App";
-import supabase from "../supabaseClient";
-import "./Auth.css";
+import { User } from "../../App";
+import supabase from "../../supabaseClient";
+import "../login/Auth.css";
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -164,3 +164,4 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
 }
 
 export default Login;
+

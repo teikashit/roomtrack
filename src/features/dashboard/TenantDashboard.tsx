@@ -1,19 +1,20 @@
-import { User } from "../App";
-import AppLayout from "../components/AppLayout";
+import { User } from "../../App";
+import AppLayout from "../../components/AppLayout";
 import "./Dashboard.css";
 
 interface Props {
   user: User;
   onLogout: () => void;
   onGoToProfile: () => void;
-  onGoToRoomManagement: () => void;
+  onGoToRoomManagement?: () => void;
+  onGoToMyRoom?: () => void;
 }
 
 const stats = [
-  { label: "Total Revenue",  value: "$24,500", change: "+12.5% vs last month", trend: "up",   icon: "💵", colorClass: "icon-blue"   },
-  { label: "Vacancy Rate",   value: "8.3%",    change: "-2.1% vs last month",  trend: "down", icon: "🏠", colorClass: "icon-green"  },
-  { label: "Pending Alerts", value: "3",       change: null,                   trend: null,   icon: "🔔", colorClass: "icon-amber"  },
-  { label: "Total Tenants",  value: "44",      change: "+2 vs last month",     trend: "up",   icon: "👥", colorClass: "icon-violet" },
+  { label: "Current Balance", value: "$1,200.00",   icon: "💳", colorClass: "icon-red"   },
+  { label: "Next Due Date",   value: "Feb 15, 2026", icon: "📅", colorClass: "icon-blue"  },
+  { label: "Recent Activity", value: "2",            icon: "🕐", colorClass: "icon-amber" },
+  { label: "Active Services", value: "3",            icon: "⚡", colorClass: "icon-green" },
 ];
 
 const announcements = [
@@ -29,7 +30,7 @@ const activity = [
   { initials: "ED", name: "Emma Davis",   action: "Payment Overdue",     time: "2 days ago",  cls: "action-red"   },
 ];
 
-function LandlordDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) {
+function TenantDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement, onGoToMyRoom }: Props) {
   return (
     <AppLayout
       user={user}
@@ -37,10 +38,13 @@ function LandlordDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement
       activePage="Dashboard"
       onGoToProfile={onGoToProfile}
       onGoToRoomManagement={onGoToRoomManagement}
+      onGoToMyRoom={onGoToMyRoom}
     >
       <div className="page-header fade-up">
-        <h1 className="page-title">Landlord Dashboard</h1>
-        <p className="page-sub">Welcome back, here's the overview of your properties.</p>
+        <h1 className="page-title">Tenant Dashboard</h1>
+        <p className="page-sub">
+          Welcome home, {user.name.split(" ")[0]}! Here's your current billing and unit status.
+        </p>
       </div>
 
       <div className="stats-grid">
@@ -51,11 +55,6 @@ function LandlordDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement
               <div className={`stat-icon ${s.colorClass}`}>{s.icon}</div>
             </div>
             <div className="stat-card__value">{s.value}</div>
-            {s.change && (
-              <div className={`stat-change ${s.trend === "up" ? "change-up" : "change-down"}`}>
-                {s.trend === "up" ? "▲" : "▼"} {s.change}
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -95,4 +94,5 @@ function LandlordDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement
   );
 }
 
-export default LandlordDashboard;
+export default TenantDashboard;
+
