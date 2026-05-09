@@ -12,6 +12,7 @@ interface Room {
   floor: string;
   size: string;
   description: string;
+  tenant_id: string | null;
   tenant_name: string | null;
   photo_url: string | null;
 }
@@ -21,6 +22,9 @@ interface Props {
   onLogout: () => void;
   onGoToProfile: () => void;
   onGoToRoomManagement?: () => void;
+  onGoToPayments?: () => void;
+  onGoToAnnouncements?: () => void;
+  onGoToDashboard?: () => void;
 }
 
 const STATUS_COLORS = {
@@ -36,7 +40,7 @@ const ROOM_PHOTOS = [
   "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&q=80",
 ];
 
-function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) {
+function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, onGoToPayments, onGoToAnnouncements, onGoToDashboard }: Props) {
   const [rooms, setRooms]               = useState<Room[]>([]);
   const [filter, setFilter]             = useState<"all" | "vacant" | "occupied" | "maintenance">("all");
   const [search, setSearch]             = useState("");
@@ -54,6 +58,8 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
   const [size, setSize]                 = useState("");
   const [description, setDescription]  = useState("");
   const [tenantName, setTenantName]     = useState("");
+  const [tenantId, setTenantId]         = useState("");
+  const [tenants, setTenants]           = useState<{ id: string; full_name: string }[]>([]);
   const [formError, setFormError]       = useState("");
   const [formLoading, setFormLoading]   = useState(false);
 
@@ -72,11 +78,21 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
     return matchFilter && matchSearch;
   });
 
+  const fetchTenants = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("role", "tenant")
+      .order("full_name");
+    if (data) setTenants(data);
+  };
+
   const openAddModal = () => {
     setEditRoom(null);
     setUnitName(""); setMonthlyRate(""); setStatus("vacant");
-    setFloor(""); setSize(""); setDescription(""); setTenantName("");
+    setFloor(""); setSize(""); setDescription(""); setTenantName(""); setTenantId("");
     setFormError("");
+    fetchTenants();
     setShowModal(true);
   };
 
@@ -89,7 +105,9 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
     setSize(room.size || "");
     setDescription(room.description || "");
     setTenantName(room.tenant_name || "");
+    setTenantId(room.tenant_id || "");
     setFormError("");
+    fetchTenants();
     setShowModal(true);
     setMenuOpen(null);
   };
@@ -110,6 +128,7 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
       floor,
       size,
       description,
+      tenant_id: status === "vacant" ? null : tenantId || null,
       tenant_name: status === "vacant" ? null : tenantName,
       photo_url: editRoom?.photo_url || photoUrl,
     };
@@ -139,7 +158,16 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
   };
 
   return (
-    <AppLayout user={user} onLogout={onLogout} activePage="Room Management" onGoToProfile={onGoToProfile} onGoToRoomManagement={onGoToRoomManagement}>
+    <AppLayout 
+      user={user} 
+      onLogout={onLogout} 
+      activePage="Room Management" 
+      onGoToProfile={onGoToProfile} 
+      onGoToRoomManagement={onGoToRoomManagement}
+      onGoToPayments={onGoToPayments}
+      onGoToAnnouncements={onGoToAnnouncements}
+      onGoToDashboard={onGoToDashboard}
+    >
       {/* Header */}
       <div className="rm-header fade-up">
         <div>
@@ -180,7 +208,7 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
       ) : (
         <div className="rm-grid fade-up">
           {filteredRooms.map(room => {
-            const s = STATUS_COLORS[room.status];
+            const s = STATUS_COLORS[room.status] ?? { bg: "#f3f4f6", color: "#374151", label: room.status?.toUpperCase() ?? "UNKNOWN" };
             return (
               <div key={room.id} className="rm-card">
                 {/* Photo */}
@@ -196,7 +224,7 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
                 <div className="rm-card__body">
                   <div className="rm-card__row">
                     <span className="rm-card__label">Monthly Rate</span>
-                    <span className="rm-card__rate">${room.monthly_rate.toLocaleString()}</span>
+                    <span className="rm-card__rate">₱{room.monthly_rate.toLocaleString()}</span>
                   </div>
                   {room.floor && (
                     <div className="rm-card__row">
@@ -256,7 +284,7 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Monthly Rate ($)</label>
+                <label>Monthly Rate (₱)</label>
                 <input type="number" value={monthlyRate} onChange={e => setMonthlyRate(e.target.value)} placeholder="e.g. 1200" />
               </div>
               <div className="form-group">
@@ -280,8 +308,20 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement }:
             </div>
             {status !== "vacant" && (
               <div className="form-group">
-                <label>Tenant Name</label>
-                <input value={tenantName} onChange={e => setTenantName(e.target.value)} placeholder="e.g. John Doe" />
+                <label>Tenant</label>
+                <select
+                  value={tenantId}
+                  onChange={e => {
+                    const selected = tenants.find(t => t.id === e.target.value);
+                    setTenantId(e.target.value);
+                    setTenantName(selected?.full_name || "");
+                  }}
+                >
+                  <option value="">— Select a tenant —</option>
+                  {tenants.map(t => (
+                    <option key={t.id} value={t.id}>{t.full_name}</option>
+                  ))}
+                </select>
               </div>
             )}
             <div className="form-group">

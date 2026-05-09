@@ -11,17 +11,17 @@ interface NavItem {
 const landlordNav: NavItem[] = [
   { emoji: "📊", label: "Dashboard" },
   { emoji: "🏠", label: "Room Management" },
-  { emoji: "📒", label: "Master Ledger" },
+  { emoji: "💳", label: "Payments" },
+  { emoji: "📣", label: "Announcements" },
   { emoji: "👤", label: "My Profile" },
-  { emoji: "⚙️", label: "Settings" },
 ];
 
 const tenantNav: NavItem[] = [
   { emoji: "📊", label: "Dashboard" },
   { emoji: "🏠", label: "My Room" },
   { emoji: "💳", label: "Payments" },
+  { emoji: "📣", label: "Announcements" },
   { emoji: "👤", label: "My Profile" },
-  { emoji: "⚙️", label: "Settings" },
 ];
 
 interface AppLayoutProps {
@@ -32,9 +32,23 @@ interface AppLayoutProps {
   onGoToProfile?: () => void;
   onGoToRoomManagement?: () => void;
   onGoToMyRoom?: () => void;
+  onGoToPayments?: () => void;
+  onGoToAnnouncements?: () => void;
+  onGoToDashboard?: () => void
 }
 
-function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToProfile, onGoToRoomManagement, onGoToMyRoom }: AppLayoutProps) {
+function AppLayout({
+  user,
+  onLogout,
+  children,
+  activePage = "Dashboard",
+  onGoToProfile,
+  onGoToRoomManagement,
+  onGoToMyRoom,
+  onGoToPayments,
+  onGoToAnnouncements,
+  onGoToDashboard,
+}: AppLayoutProps) {
   const navItems = user.role === "landlord" ? landlordNav : tenantNav;
   const initials = user.name
     .split(" ")
@@ -57,9 +71,15 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToP
   }, [user.id]);
 
   const handleNavClick = (label: string) => {
+    if (label === "Dashboard" && onGoToDashboard) onGoToDashboard();
     if (label === "My Profile" && onGoToProfile) onGoToProfile();
     if (label === "Room Management" && onGoToRoomManagement) onGoToRoomManagement();
     if (label === "My Room" && onGoToMyRoom) onGoToMyRoom();
+    if (label === "Payments" && onGoToPayments) onGoToPayments();
+    if (label === "Announcements" && onGoToAnnouncements) onGoToAnnouncements();
+    if (label === "Dashboard") {
+      // navigate back to dashboard — handled by parent if they want to pass a handler
+    }
   };
 
   return (
@@ -115,7 +135,7 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToP
                 key={item.label}
                 className={`nav-item ${activePage === item.label ? "nav-item--active" : ""}`}
                 onClick={() => handleNavClick(item.label)}
-                style={{ cursor: ["My Profile", "Room Management", "My Room"].includes(item.label) ? "pointer" : "default" }}
+                style={{ cursor: "pointer" }}
               >
                 <span className="nav-item__icon">{item.emoji}</span>
                 <span>{item.label}</span>
@@ -134,9 +154,7 @@ function AppLayout({ user, onLogout, children, activePage = "Dashboard", onGoToP
           </div>
         </aside>
 
-        <main className="main-content">
-          {children}
-        </main>
+        <main className="main-content">{children}</main>
       </div>
     </div>
   );

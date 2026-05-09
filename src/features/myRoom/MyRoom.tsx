@@ -12,11 +12,16 @@ interface Room {
   floor: string;
   size: string;
   description: string;
+  tenant_id: string | null;
   tenant_name: string | null;
   photo_url: string | null;
 }
 
 interface Props {
+  onGoToMyRoom?: () => void;
+  onGoToPayments?: () => void;
+  onGoToAnnouncements?: () => void;
+  onGoToDashboard?: () => void;
   user: User;
   onLogout: () => void;
   onGoToProfile: () => void;
@@ -35,7 +40,7 @@ const RULES = [
   "Quiet hours: 10PM - 6AM",
 ];
 
-function MyRoom({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) {
+function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, onGoToAnnouncements, onGoToRoomManagement, onGoToDashboard }: Props) {
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,20 +48,11 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) 
     const fetchRoom = async () => {
       setLoading(true);
 
-      // Fetch profile to get full_name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
-
-      const fullName = profile?.full_name || user.name;
-
-      // Find room matching tenant name
+      // Find room matching tenant_id
       const { data } = await supabase
         .from("rooms")
         .select("*")
-        .ilike("tenant_name", fullName)
+        .eq("tenant_id", user.id)
         .single();
 
       setRoom(data as Room || null);
@@ -74,6 +70,10 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) 
 
   return (
     <AppLayout
+      onGoToMyRoom={onGoToMyRoom}
+      onGoToPayments={onGoToPayments}
+      onGoToAnnouncements={onGoToAnnouncements}
+      onGoToDashboard={onGoToDashboard}
       user={user}
       onLogout={onLogout}
       activePage="My Room"
@@ -129,7 +129,7 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToRoomManagement }: Props) 
               {/* Monthly Rate */}
               <div className="myroom-section">
                 <div className="myroom-section__title">MONTHLY RATE</div>
-                <div className="myroom-rate">${room.monthly_rate.toLocaleString()}</div>
+                <div className="myroom-rate">₱{room.monthly_rate.toLocaleString()}</div>
               </div>
 
               {/* Extra Details */}

@@ -6,6 +6,9 @@ import TenantDashboard from "./features/dashboard/TenantDashboard";
 import Profile from "./features/profile/Profile";
 import RoomManagement from "./features/roomManagement/RoomManagement";
 import MyRoom from "./features/myRoom/MyRoom";
+import LandlordPayments from "./features/payments/LandlordPayments";
+import TenantPayments from "./features/payments/TenantPayments";
+import Announcements from "./features/announcements/Announcements";
 import supabase from "./supabaseClient";
 
 export interface User {
@@ -15,7 +18,16 @@ export interface User {
   role: "landlord" | "tenant";
 }
 
-type Screen = "login" | "register" | "landlord-dashboard" | "tenant-dashboard" | "profile" | "room-management" | "my-room";
+type Screen =
+  | "login"
+  | "register"
+  | "landlord-dashboard"
+  | "tenant-dashboard"
+  | "profile"
+  | "room-management"
+  | "my-room"
+  | "payments"
+  | "announcements";
 
 function App() {
   const [screen, setScreen] = useState<Screen>(() => {
@@ -41,7 +53,11 @@ function App() {
 
         setUser({
           id: session.user.id,
-          name: profile?.full_name || session.user.user_metadata?.full_name || session.user.email || "User",
+          name:
+            profile?.full_name ||
+            session.user.user_metadata?.full_name ||
+            session.user.email ||
+            "User",
           email: session.user.email || "",
           role: role,
         });
@@ -74,11 +90,17 @@ function App() {
     setUser(updatedUser);
   };
 
-  if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontSize: "18px", color: "#64748b" }}>
-      Loading...
-    </div>
-  );
+  const goToDashboard = () => {
+    if (!user) return;
+    setScreen(user.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
+  };
+
+  if (loading)
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontSize: "18px", color: "#64748b" }}>
+        Loading...
+      </div>
+    );
 
   return (
     <>
@@ -94,6 +116,8 @@ function App() {
           onLogout={handleLogout}
           onGoToProfile={() => setScreen("profile")}
           onGoToRoomManagement={() => setScreen("room-management")}
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
         />
       )}
       {screen === "tenant-dashboard" && user && (
@@ -101,13 +125,15 @@ function App() {
           user={user}
           onLogout={handleLogout}
           onGoToProfile={() => setScreen("profile")}
-          onGoToRoomManagement={() => setScreen("room-management")}
+          onGoToMyRoom={() => setScreen("my-room")}
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
         />
       )}
       {screen === "profile" && user && (
         <Profile
           user={user}
-          onBack={() => setScreen(user.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard")}
+          onBack={goToDashboard}
           onLogout={handleLogout}
           onUpdateUser={handleUpdateUser}
         />
@@ -118,6 +144,9 @@ function App() {
           onLogout={handleLogout}
           onGoToProfile={() => setScreen("profile")}
           onGoToRoomManagement={() => setScreen("room-management")}
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
+          onGoToDashboard={() => setScreen("landlord-dashboard")}
         />
       )}
       {screen === "my-room" && user && (
@@ -125,19 +154,46 @@ function App() {
           user={user}
           onLogout={handleLogout}
           onGoToProfile={() => setScreen("profile")}
-          onGoToRoomManagement={() => setScreen("room-management")}
-  />
+          onGoToMyRoom={() => setScreen("my-room")}
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
+          onGoToDashboard={goToDashboard}
+        />
       )}
-      {screen === "tenant-dashboard" && user && (
-        <TenantDashboard
+      {screen === "payments" && user && user.role === "landlord" && (
+        <LandlordPayments
           user={user}
           onLogout={handleLogout}
           onGoToProfile={() => setScreen("profile")}
           onGoToRoomManagement={() => setScreen("room-management")}
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
+          onGoToDashboard={goToDashboard}
+        />
+      )}
+      {screen === "payments" && user && user.role === "tenant" && (
+        <TenantPayments
+          user={user}
+          onLogout={handleLogout}
+          onGoToProfile={() => setScreen("profile")}
           onGoToMyRoom={() => setScreen("my-room")}
-  />
-)}
-
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
+          onGoToDashboard={goToDashboard}
+        />
+      )}
+      {screen === "announcements" && user && (
+        <Announcements
+          user={user}
+          onLogout={handleLogout}
+          onGoToProfile={() => setScreen("profile")}
+          onGoToRoomManagement={user.role === "landlord" ? () => setScreen("room-management") : undefined}
+          onGoToMyRoom={user.role === "tenant" ? () => setScreen("my-room") : undefined}
+          onGoToPayments={() => setScreen("payments")}
+          onGoToAnnouncements={() => setScreen("announcements")}
+          onGoToDashboard={goToDashboard}
+        />
+      )}
     </>
   );
 }
