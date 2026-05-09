@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./Dashboard.css";
 
@@ -11,22 +11,6 @@ interface Props {
   onGoToRoomManagement: () => void;
   onGoToPayments: () => void;
   onGoToAnnouncements: () => void;
-}
-
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-}
-
-interface Payment {
-  id: string;
-  tenant_name?: string;
-  amount: number;
-  status: string;
-  due_date: string;
-  profiles?: { full_name: string };
 }
 
 function timeAgo(dateStr: string): string {
@@ -42,40 +26,35 @@ function timeAgo(dateStr: string): string {
 
 function LandlordDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement, onGoToPayments, onGoToAnnouncements }: Props) {
   const [stats, setStats] = useState({ totalRooms: 0, occupiedRooms: 0, totalTenants: 0, totalRevenue: 0 });
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
+      try {
+        const [rooms, ann, pays] = await Promise.all([
+          api.getRooms(),
+          api.getAllAnnouncements(),
+          api.getAllPayments(),
+        ]);
 
-      // Rooms stats
-      const { data: rooms } = await supabase.from("rooms").select("status, monthly_rate");
-      if (rooms) {
         const totalRooms = rooms.length;
-        const occupiedRooms = rooms.filter(r => r.status === "occupied").length;
-        const totalRevenue = rooms.filter(r => r.status === "occupied").reduce((s, r) => s + (r.monthly_rate || 0), 0);
-        const totalTenants = occupiedRooms;
-        setStats({ totalRooms, occupiedRooms, totalTenants, totalRevenue });
+        const occupiedRooms = rooms.filter(r => r.status.toLowerCase() === "occupied").length;
+        const totalRevenue = rooms.filter(r => r.status.toLowerCase() === "occupied").reduce((s, r) => s + (r.monthly_rate || 0), 0);
+        setStats({ totalRooms, occupiedRooms, totalTenants: occupiedRooms, totalRevenue });
+
+        // Sort announcements newest first, show top 4
+        const sorted = [...ann].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setAnnouncements(sorted.slice(0, 4));
+
+        // Sort payments by due_date desc, show top 5
+        const sortedPays = [...pays].sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
+        setRecentPayments(sortedPays.slice(0, 5));
+      } catch (e) {
+        // silently fail — user stays on loading=false
       }
-
-      // Announcements
-      const { data: ann } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(4);
-      if (ann) setAnnouncements(ann);
-
-      // Recent payments
-      const { data: pays } = await supabase
-        .from("payments")
-        .select("*")
-        .order("due_date", { ascending: false })
-        .limit(5);
-      if (pays) setRecentPayments(pays);
-
       setLoading(false);
     };
     fetchAll();
@@ -93,9 +72,10 @@ function LandlordDashboard({ user, onLogout, onGoToProfile, onGoToRoomManagement
   ];
 
   const paymentStatusLabel = (status: string) => {
-    if (status === "paid") return { label: "Paid", cls: "action-green" };
-    if (status === "overdue") return { label: "Overdue", cls: "action-red" };
-    if (status === "for_verification") return { label: "For Verification", cls: "action-amber" };
+    const s = status.toLowerCase();
+    if (s === "paid") return { label: "Paid", cls: "action-green" };
+    if (s === "overdue") return { label: "Overdue", cls: "action-red" };
+    if (s === "for_verification") return { label: "For Verification", cls: "action-amber" };
     return { label: status, cls: "action-blue" };
   };
 

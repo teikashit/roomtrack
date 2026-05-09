@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./Payments.css";
 
@@ -45,18 +45,15 @@ export default function TenantPayments({ user, onLogout, onGoToProfile, onGoToMy
 
   const fetchPayments = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("tenant_id", user.id)
-      .order("due_date", { ascending: false });
-    if (data) setPayments(data as Payment[]);
+    const data = await api.getPaymentsByTenant(user.id);
+    const sorted = [...data].sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
+    setPayments(sorted as Payment[]);
     setLoading(false);
   };
 
   useEffect(() => { fetchPayments(); }, []);
 
-  const pendingPayments = payments.filter(p => p.status !== "paid");
+  const pendingPayments = payments.filter(p => p.status.toLowerCase() !== "paid");
   const totalBalance = pendingPayments.reduce((s, p) => s + Number(p.amount), 0);
   const nextDue = pendingPayments[pendingPayments.length - 1] || pendingPayments[0];
 
@@ -69,7 +66,7 @@ export default function TenantPayments({ user, onLogout, onGoToProfile, onGoToMy
   const handlePayNow = async () => {
     if (!selectedPayment) return;
     setCheckoutLoading(true);
-    await supabase.from("payments").update({ status: "for_verification" }).eq("id", selectedPayment.id);
+    await api.updatePaymentStatus(selectedPayment.id, "for_verification");
     setCheckoutLoading(false);
     setCheckoutSuccess(true);
     fetchPayments();

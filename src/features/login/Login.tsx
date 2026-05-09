@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api, setToken } from "../../apiClient";
 import "../login/Auth.css";
 
 interface LoginProps {
@@ -16,56 +16,35 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
   const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError("Please fill in all fields.");
-      return;
-    }
-    if (!email.includes("@")) {
-      setError("Please enter a valid email address.");
-      return;
-    }
+    if (!email || !password) { setError("Please fill in all fields."); return; }
+    if (!email.includes("@")) { setError("Please enter a valid email address."); return; }
 
     setLoading(true);
     setError("");
 
     try {
-      const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const data = await api.login(email, password);
+
+      // Store JWT token
+      setToken(`${data.access_token}`);
+
+      const role = (data.user.user_metadata?.role as "landlord" | "tenant") || "landlord";
+
+      onLogin({
+        id: data.user.id,
+        name: data.user.user_metadata?.full_name || data.user.email || "User",
+        email: data.user.email,
+        role,
       });
-
-      if (supabaseError) {
-        if (supabaseError.message.includes("Invalid login credentials")) {
-          setError("Invalid email or password. Please try again.");
-        } else if (supabaseError.message.includes("Too many requests")) {
-          setError("Too many attempts. Please wait a moment and try again.");
-        } else {
-          setError(supabaseError.message);
-        }
-        setLoading(false);
-        return;
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("credentials")) {
+        setError("Invalid email or password. Please try again.");
+      } else if (msg.toLowerCase().includes("too many")) {
+        setError("Too many attempts. Please wait a moment and try again.");
+      } else {
+        setError("A server error occurred. Please try again later.");
       }
-
-      if (data.user) {
-        // Fetch role from profiles table — ignore the toggle
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, full_name")
-          .eq("id", data.user.id)
-          .single();
-
-        const userRole = (profile?.role as "landlord" | "tenant") || "landlord";
-
-        onLogin({
-          id: data.user.id,
-          name: profile?.full_name || data.user.user_metadata?.full_name || data.user.email || "User",
-          email: data.user.email || "",
-          role: userRole,
-        });
-      }
-
-    } catch (err) {
-      setError("A server error occurred. Please try again later.");
     }
 
     setLoading(false);
@@ -89,9 +68,9 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
           </p>
           <ul className="auth-features">
             <li>💰 Real-time payment tracking</li>
-            <li>🏠 Room & unit management</li>
-            <li>🔔 Smart alerts & announcements</li>
-            <li>📊 Revenue & occupancy insights</li>
+            <li>🏠 Room &amp; unit management</li>
+            <li>🔔 Smart alerts &amp; announcements</li>
+            <li>📊 Revenue &amp; occupancy insights</li>
           </ul>
         </div>
         <div className="deco-circle deco-circle--1" />
@@ -106,7 +85,6 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             <p>Sign in to your RoomTrack account</p>
           </div>
 
-          {/* Email */}
           <div className="form-group">
             <label>Email address</label>
             <input
@@ -117,7 +95,6 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             />
           </div>
 
-          {/* Password */}
           <div className="form-group">
             <label>Password</label>
             <div className="input-wrap">
@@ -137,11 +114,7 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
             </div>
           </div>
 
-          {error && (
-            <div className="form-error">
-              ⚠️ {error}
-            </div>
-          )}
+          {error && <div className="form-error">⚠️ {error}</div>}
 
           <button
             className={`btn-submit ${loading ? "loading" : ""}`}
@@ -164,4 +137,3 @@ function Login({ onLogin, onGoToRegister }: LoginProps) {
 }
 
 export default Login;
-

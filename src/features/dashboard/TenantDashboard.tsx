@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./Dashboard.css";
 
@@ -11,20 +11,6 @@ interface Props {
   onGoToMyRoom?: () => void;
   onGoToPayments: () => void;
   onGoToAnnouncements: () => void;
-}
-
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
-}
-
-interface Payment {
-  id: string;
-  amount: number;
-  status: string;
-  due_date: string;
 }
 
 function timeAgo(dateStr: string): string {
@@ -43,37 +29,34 @@ function formatDate(dateStr: string): string {
 }
 
 function TenantDashboard({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, onGoToAnnouncements }: Props) {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
+      try {
+        const [pays, ann] = await Promise.all([
+          api.getPaymentsByTenant(user.id),
+          api.getAllAnnouncements(),
+        ]);
 
-      // Tenant payments by tenant_id
-      const { data: pays } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("tenant_id", user.id)
-        .order("due_date", { ascending: false });
-      if (pays) setPayments(pays);
+        const sortedPays = [...pays].sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
+        setPayments(sortedPays);
 
-      // Announcements
-      const { data: ann } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(4);
-      if (ann) setAnnouncements(ann);
-
+        const sortedAnn = [...ann].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setAnnouncements(sortedAnn.slice(0, 4));
+      } catch (e) {
+        // silently fail
+      }
       setLoading(false);
     };
     fetchAll();
   }, [user.id]);
 
-  const pendingBalance = payments.filter(p => p.status !== "paid").reduce((s, p) => s + Number(p.amount), 0);
-  const nextDue = payments.find(p => p.status !== "paid");
+  const pendingBalance = payments.filter(p => p.status.toLowerCase() !== "paid").reduce((s, p) => s + Number(p.amount), 0);
+  const nextDue = payments.find(p => p.status.toLowerCase() !== "paid");
   const recentActivity = payments.length;
 
   const statCards = [
@@ -84,9 +67,10 @@ function TenantDashboard({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPa
   ];
 
   const paymentStatusLabel = (status: string) => {
-    if (status === "paid") return { label: "Paid", cls: "action-green" };
-    if (status === "overdue") return { label: "Overdue", cls: "action-red" };
-    if (status === "for_verification") return { label: "For Verification", cls: "action-amber" };
+    const s = status.toLowerCase();
+    if (s === "paid") return { label: "Paid", cls: "action-green" };
+    if (s === "overdue") return { label: "Overdue", cls: "action-red" };
+    if (s === "for_verification") return { label: "For Verification", cls: "action-amber" };
     return { label: "Pending", cls: "action-blue" };
   };
 

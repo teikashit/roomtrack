@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./Announcements.css";
 
@@ -13,13 +13,6 @@ interface Props {
   onGoToPayments: () => void;
   onGoToAnnouncements: () => void;
   onGoToDashboard?: () => void;
-}
-
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  created_at: string;
 }
 
 const ICONS = ["📣", "🔔", "📌", "🏠", "💡", "⚠️", "🛠️", "🎉"];
@@ -40,7 +33,7 @@ function timeAgo(dateStr: string): string {
 export default function Announcements({
   user, onLogout, onGoToProfile, onGoToRoomManagement, onGoToMyRoom, onGoToPayments, onGoToAnnouncements, onGoToDashboard
 }: Props) {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState("");
@@ -52,11 +45,11 @@ export default function Announcements({
 
   const fetchAnnouncements = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("announcements")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (data) setAnnouncements(data as Announcement[]);
+    try {
+      const data = await api.getAllAnnouncements();
+      const sorted = [...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setAnnouncements(sorted);
+    } catch (e) { /* silently fail */ }
     setLoading(false);
   };
 
@@ -71,16 +64,27 @@ export default function Announcements({
     if (!title.trim() || !content.trim()) { setFormError("Please fill in all fields."); return; }
     setFormLoading(true);
     setFormError("");
-    await supabase.from("announcements").insert({ title: title.trim(), content: content.trim() });
+    try {
+      await api.createAnnouncement({
+        title: title.trim(),
+        content: content.trim(),
+        landlord_id: user.id,
+        landlord_name: user.name,
+      });
+      setShowModal(false);
+      fetchAnnouncements();
+    } catch (e) {
+      setFormError("Failed to post announcement. Please try again.");
+    }
     setFormLoading(false);
-    setShowModal(false);
-    fetchAnnouncements();
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this announcement?")) return;
-    await supabase.from("announcements").delete().eq("id", id);
-    fetchAnnouncements();
+    try {
+      await api.deleteAnnouncement(id);
+      fetchAnnouncements();
+    } catch (e) { /* silently fail */ }
   };
 
   return (
@@ -125,9 +129,7 @@ export default function Announcements({
             announcements.map((a, i) => (
               <div key={a.id} className={`ann-card fade-up delay-${Math.min(i + 1, 5)}`}>
                 <div className="ann-card__top">
-                  <div className="ann-card__icon">
-                    {ICONS[i % ICONS.length]}
-                  </div>
+                  <div className="ann-card__icon">{ICONS[i % ICONS.length]}</div>
                   <div className="ann-card__meta">
                     <div className="ann-card__title">{a.title}</div>
                     <div className="ann-card__time">{timeAgo(a.created_at)}</div>
@@ -145,7 +147,6 @@ export default function Announcements({
         </div>
       )}
 
-      {/* Post Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>

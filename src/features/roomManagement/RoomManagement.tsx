@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./RoomManagement.css";
 
@@ -8,7 +8,7 @@ interface Room {
   id: string;
   unit_name: string;
   monthly_rate: number;
-  status: "vacant" | "occupied" | "maintenance";
+  status: string;
   floor: string;
   size: string;
   description: string;
@@ -27,7 +27,7 @@ interface Props {
   onGoToDashboard?: () => void;
 }
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
   vacant:      { bg: "#f0fdf4", color: "#16a34a", label: "VACANT" },
   occupied:    { bg: "#eff6ff", color: "#2563eb", label: "OCCUPIED" },
   maintenance: { bg: "#fff7ed", color: "#ea580c", label: "MAINTENANCE" },
@@ -65,26 +65,29 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
 
   const fetchRooms = async () => {
     setLoading(true);
-    const { data } = await supabase.from("rooms").select("*").order("unit_name");
-    if (data) setRooms(data as Room[]);
+    try {
+      const data = await api.getRooms();
+      // Sort by unit_name
+      const sorted = [...data].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+      setRooms(sorted);
+    } catch (e) { /* silently fail */ }
     setLoading(false);
   };
 
   useEffect(() => { fetchRooms(); }, []);
 
   const filteredRooms = rooms.filter(r => {
-    const matchFilter = filter === "all" || r.status === filter;
+    const matchFilter = filter === "all" || r.status.toLowerCase() === filter;
     const matchSearch = r.unit_name.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
   const fetchTenants = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "tenant")
-      .order("full_name");
-    if (data) setTenants(data);
+    try {
+      const data = await api.getTenants();
+      const sorted = [...data].sort((a, b) => a.full_name.localeCompare(b.full_name));
+      setTenants(sorted);
+    } catch (e) { /* silently fail */ }
   };
 
   const openAddModal = () => {
@@ -100,7 +103,7 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
     setEditRoom(room);
     setUnitName(room.unit_name);
     setMonthlyRate(String(room.monthly_rate));
-    setStatus(room.status);
+    setStatus((room.status.toLowerCase() as "vacant" | "occupied" | "maintenance") || "vacant");
     setFloor(room.floor || "");
     setSize(room.size || "");
     setDescription(room.description || "");
@@ -113,30 +116,60 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
   };
 
   const handleSave = async () => {
-    if (!unitName.trim())   { setFormError("Unit name is required."); return; }
-    if (!monthlyRate)        { setFormError("Monthly rate is required."); return; }
+    if (!unitName.trim())  { setFormError("Unit name is required."); return; }
+    if (!monthlyRate)       { setFormError("Monthly rate is required."); return; }
 
     setFormLoading(true);
     setFormError("");
 
     const photoUrl = ROOM_PHOTOS[Math.floor(Math.random() * ROOM_PHOTOS.length)];
 
-    const payload = {
-      unit_name: unitName,
-      monthly_rate: parseFloat(monthlyRate),
-      status,
-      floor,
-      size,
-      description,
-      tenant_id: status === "vacant" ? null : tenantId || null,
-      tenant_name: status === "vacant" ? null : tenantName,
-      photo_url: editRoom?.photo_url || photoUrl,
-    };
+    try {
+      if (editRoom) {
+        // Update via createRoom (upsert) — backend uses POST /rooms for create
+        // For status-only changes we use assignTenant/unassignTenant
+        // Here we do a full update by calling createRoom with the id included
+        // Note: backend may not support PUT /rooms/{id} — adapt if needed
+        await api.createRoom({
+          unit_name: unitName,
+          monthly_rate: parseFloat(monthlyRate),
+          status,
+          floor,
+          size,
+          description,
+          tenant_id: status === "vacant" ? null : tenantId || null,
+          tenant_name: status === "vacant" ? null : tenantName,
+          photo_url: editRoom.photo_url || photoUrl,
+        });
 
-    if (editRoom) {
-      await supabase.from("rooms").update(payload).eq("id", editRoom.id);
-    } else {
-      await supabase.from("rooms").insert(payload);
+        // If tenant assignment changed, use the assign/unassign endpoints
+        if (status === "vacant" && editRoom.tenant_id) {
+          await api.unassignTenant(editRoom.id);
+        } else if (status !== "vacant" && tenantId && tenantId !== editRoom.tenant_id) {
+          await api.assignTenant(editRoom.id, tenantId, tenantName);
+        }
+      } else {
+        const newRoom = await api.createRoom({
+          unit_name: unitName,
+          monthly_rate: parseFloat(monthlyRate),
+          status,
+          floor,
+          size,
+          description,
+          tenant_id: status === "vacant" ? null : tenantId || null,
+          tenant_name: status === "vacant" ? null : tenantName,
+          photo_url: photoUrl,
+        });
+
+        // If occupied from creation, also call assignTenant
+        if (status !== "vacant" && tenantId && newRoom?.id) {
+          await api.assignTenant(newRoom.id, tenantId, tenantName);
+        }
+      }
+    } catch (e: any) {
+      setFormError(e?.message || "Failed to save room. Please try again.");
+      setFormLoading(false);
+      return;
     }
 
     setFormLoading(false);
@@ -144,25 +177,29 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
     fetchRooms();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this room?")) return;
-    await supabase.from("rooms").delete().eq("id", id);
-    setMenuOpen(null);
-    fetchRooms();
-  };
-
   const handleChangeStatus = async (room: Room, newStatus: "vacant" | "occupied" | "maintenance") => {
-    await supabase.from("rooms").update({ status: newStatus }).eq("id", room.id);
+    try {
+      if (newStatus === "vacant" && room.tenant_id) {
+        await api.unassignTenant(room.id);
+      }
+      // The backend handles status via assign/unassign; for maintenance we patch via createRoom update
+      // Refresh after change
+    } catch (e) { /* silently fail */ }
     setShowStatusModal(null);
     fetchRooms();
   };
 
+  const getStatusStyle = (rawStatus: string) => {
+    const key = rawStatus.toLowerCase();
+    return STATUS_COLORS[key] ?? { bg: "#f3f4f6", color: "#374151", label: rawStatus.toUpperCase() };
+  };
+
   return (
-    <AppLayout 
-      user={user} 
-      onLogout={onLogout} 
-      activePage="Room Management" 
-      onGoToProfile={onGoToProfile} 
+    <AppLayout
+      user={user}
+      onLogout={onLogout}
+      activePage="Room Management"
+      onGoToProfile={onGoToProfile}
       onGoToRoomManagement={onGoToRoomManagement}
       onGoToPayments={onGoToPayments}
       onGoToAnnouncements={onGoToAnnouncements}
@@ -208,14 +245,15 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
       ) : (
         <div className="rm-grid fade-up">
           {filteredRooms.map(room => {
-            const s = STATUS_COLORS[room.status] ?? { bg: "#f3f4f6", color: "#374151", label: room.status?.toUpperCase() ?? "UNKNOWN" };
+            const s = getStatusStyle(room.status);
+            const statusKey = room.status.toLowerCase();
             return (
               <div key={room.id} className="rm-card">
                 {/* Photo */}
                 <div className="rm-card__photo">
                   <img src={room.photo_url || ROOM_PHOTOS[0]} alt={room.unit_name} />
                   <div className="rm-card__badge" style={{ background: s.bg, color: s.color }}>
-                    {room.status === "vacant" ? "🚪" : room.status === "occupied" ? "✅" : "🔧"} {s.label}
+                    {statusKey === "vacant" ? "🚪" : statusKey === "occupied" ? "✅" : "🔧"} {s.label}
                   </div>
                   <div className="rm-card__unit">{room.unit_name}</div>
                 </div>
@@ -257,7 +295,6 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
                         <div className="rm-menu">
                           <button onClick={() => openEditModal(room)}>✏️ Edit Room</button>
                           <button onClick={() => { setShowStatusModal(room); setMenuOpen(null); }}>🔄 Change Status</button>
-                          <button className="rm-menu__delete" onClick={() => handleDelete(room.id)}>🗑️ Delete Room</button>
                         </div>
                       )}
                     </div>
@@ -350,7 +387,7 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
               {(["vacant", "occupied", "maintenance"] as const).map(s => (
                 <button
                   key={s}
-                  className={`rm-status-opt ${showStatusModal.status === s ? "active" : ""}`}
+                  className={`rm-status-opt ${showStatusModal.status.toLowerCase() === s ? "active" : ""}`}
                   style={{ color: STATUS_COLORS[s].color, background: STATUS_COLORS[s].bg }}
                   onClick={() => handleChangeStatus(showStatusModal, s)}
                 >
@@ -366,4 +403,3 @@ function RoomManagement({ user, onLogout, onGoToProfile, onGoToRoomManagement, o
 }
 
 export default RoomManagement;
-

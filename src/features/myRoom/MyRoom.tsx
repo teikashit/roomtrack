@@ -1,21 +1,8 @@
 import { useState, useEffect } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./MyRoom.css";
-
-interface Room {
-  id: string;
-  unit_name: string;
-  monthly_rate: number;
-  status: "vacant" | "occupied" | "maintenance";
-  floor: string;
-  size: string;
-  description: string;
-  tenant_id: string | null;
-  tenant_name: string | null;
-  photo_url: string | null;
-}
 
 interface Props {
   onGoToMyRoom?: () => void;
@@ -41,32 +28,30 @@ const RULES = [
 ];
 
 function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, onGoToAnnouncements, onGoToRoomManagement, onGoToDashboard }: Props) {
-  const [room, setRoom] = useState<Room | null>(null);
+  const [room, setRoom] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchRoom = async () => {
       setLoading(true);
-
-      // Find room matching tenant_id
-      const { data } = await supabase
-        .from("rooms")
-        .select("*")
-        .eq("tenant_id", user.id)
-        .single();
-
-      setRoom(data as Room || null);
+      try {
+        const rooms = await api.getRoomByTenantId(user.id);
+        setRoom(rooms && rooms.length > 0 ? rooms[0] : null);
+      } catch (e) {
+        setRoom(null);
+      }
       setLoading(false);
     };
-
     fetchRoom();
-  }, [user.id, user.name]);
+  }, [user.id]);
 
   const statusColors: Record<string, { bg: string; color: string }> = {
     vacant:      { bg: "#f0fdf4", color: "#16a34a" },
     occupied:    { bg: "#eff6ff", color: "#2563eb" },
     maintenance: { bg: "#fff7ed", color: "#ea580c" },
   };
+
+  const status = room?.status?.toLowerCase() || "vacant";
 
   return (
     <AppLayout
@@ -95,7 +80,6 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, o
         </div>
       ) : (
         <div className="myroom-card fade-up">
-          {/* Photo */}
           <div className="myroom-photo">
             <img
               src={room.photo_url || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80"}
@@ -103,17 +87,15 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, o
             />
             <div
               className="myroom-badge"
-              style={{ background: statusColors[room.status]?.bg, color: statusColors[room.status]?.color }}
+              style={{ background: statusColors[status]?.bg, color: statusColors[status]?.color }}
             >
-              ✅ {room.status.toUpperCase()}
+              ✅ {status.toUpperCase()}
             </div>
             <div className="myroom-unit">{room.unit_name}</div>
           </div>
 
-          {/* Details */}
           <div className="myroom-body">
             <div className="myroom-left">
-              {/* Amenities */}
               <div className="myroom-section">
                 <div className="myroom-section__title">AMENITIES</div>
                 <div className="myroom-amenities">
@@ -126,13 +108,11 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, o
                 </div>
               </div>
 
-              {/* Monthly Rate */}
               <div className="myroom-section">
                 <div className="myroom-section__title">MONTHLY RATE</div>
                 <div className="myroom-rate">₱{room.monthly_rate.toLocaleString()}</div>
               </div>
 
-              {/* Extra Details */}
               {(room.floor || room.size) && (
                 <div className="myroom-section">
                   <div className="myroom-section__title">UNIT DETAILS</div>
@@ -152,7 +132,6 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, o
             </div>
 
             <div className="myroom-right">
-              {/* Property Rules */}
               <div className="myroom-section">
                 <div className="myroom-section__title">PROPERTY RULES</div>
                 <ul className="myroom-rules">
@@ -165,7 +144,6 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, o
                 </ul>
               </div>
 
-              {/* Lease Agreement */}
               <button className="myroom-lease-btn">
                 📄 View Digital Lease Agreement
               </button>
@@ -178,4 +156,3 @@ function MyRoom({ user, onLogout, onGoToProfile, onGoToMyRoom, onGoToPayments, o
 }
 
 export default MyRoom;
-

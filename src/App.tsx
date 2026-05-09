@@ -9,7 +9,7 @@ import MyRoom from "./features/myRoom/MyRoom";
 import LandlordPayments from "./features/payments/LandlordPayments";
 import TenantPayments from "./features/payments/TenantPayments";
 import Announcements from "./features/announcements/Announcements";
-import supabase from "./supabaseClient";
+import { clearToken, getToken } from "./apiClient";
 
 export interface User {
   id: string;
@@ -33,7 +33,10 @@ function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     return (localStorage.getItem("screen") as Screen) || "login";
   });
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("rt_user");
+    return stored ? (JSON.parse(stored) as User) : null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,53 +44,38 @@ function App() {
   }, [screen]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, full_name")
-          .eq("id", session.user.id)
-          .single();
-
-        const role = (profile?.role as "landlord" | "tenant") || "landlord";
-
-        setUser({
-          id: session.user.id,
-          name:
-            profile?.full_name ||
-            session.user.user_metadata?.full_name ||
-            session.user.email ||
-            "User",
-          email: session.user.email || "",
-          role: role,
-        });
-      } else {
-        setScreen("login");
-        localStorage.removeItem("screen");
-      }
-      setLoading(false);
-    });
+    // On mount: if there is no JWT token, force back to login
+    if (!getToken()) {
+      setUser(null);
+      setScreen("login");
+      localStorage.removeItem("screen");
+    }
+    setLoading(false);
   }, []);
 
   const handleLogin = (u: User) => {
     setUser(u);
+    localStorage.setItem("rt_user", JSON.stringify(u));
     setScreen(u.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    clearToken();
     setUser(null);
     setScreen("login");
     localStorage.removeItem("screen");
+    localStorage.removeItem("rt_user");
   };
 
   const handleRegister = (u: User) => {
     setUser(u);
+    localStorage.setItem("rt_user", JSON.stringify(u));
     setScreen(u.role === "landlord" ? "landlord-dashboard" : "tenant-dashboard");
   };
 
   const handleUpdateUser = (updatedUser: User) => {
     setUser(updatedUser);
+    localStorage.setItem("rt_user", JSON.stringify(updatedUser));
   };
 
   const goToDashboard = () => {

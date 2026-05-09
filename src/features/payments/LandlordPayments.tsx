@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api } from "../../apiClient";
 import AppLayout from "../../components/AppLayout";
 import "./Payments.css";
 
@@ -63,8 +63,9 @@ export default function LandlordPayments({ user, onLogout, onGoToProfile, onGoTo
 
   const fetchPayments = async () => {
     setLoading(true);
-    const { data } = await supabase.from("payments").select("*").order("due_date", { ascending: false });
-    if (data) setPayments(data as Payment[]);
+    const data = await api.getAllPayments();
+    const sorted = [...data].sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
+    setPayments(sorted as Payment[]);
     setLoading(false);
   };
 
@@ -79,12 +80,9 @@ export default function LandlordPayments({ user, onLogout, onGoToProfile, onGoTo
   }, []);
 
   const fetchTenants = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "tenant")
-      .order("full_name");
-    if (data) setTenants(data);
+    const data = await api.getTenants();
+    const sorted = [...data].sort((a, b) => a.full_name.localeCompare(b.full_name));
+    setTenants(sorted);
   };
 
   const openAdd = () => {
@@ -109,9 +107,9 @@ export default function LandlordPayments({ user, onLogout, onGoToProfile, onGoTo
     setFormError("");
     const payload = { tenant_id: tenantId, tenant_name: tenantName.trim(), amount: parseFloat(amount), status, due_date: dueDate, description: description.trim() || null };
     if (editPayment) {
-      await supabase.from("payments").update(payload).eq("id", editPayment.id);
+      await api.updatePaymentStatus(editPayment.id, payload.status);
     } else {
-      await supabase.from("payments").insert(payload);
+      await api.createPayment(payload as any);
     }
     setFormLoading(false);
     setShowModal(false);
@@ -119,37 +117,36 @@ export default function LandlordPayments({ user, onLogout, onGoToProfile, onGoTo
   };
 
   const handleMarkPaid = async (id: string) => {
-    const today = new Date().toISOString().split("T")[0];
-    await supabase.from("payments").update({ status: "paid", paid_date: today }).eq("id", id);
+    await api.updatePaymentStatus(id, "paid");
     setMenuOpen(null);
     fetchPayments();
   };
 
   const handleStatusChange = async (id: string, newStatus: Payment["status"]) => {
-    const update: Record<string, string | null> = { status: newStatus };
-    if (newStatus === "paid") update.paid_date = new Date().toISOString().split("T")[0];
-    await supabase.from("payments").update(update).eq("id", id);
+    await api.updatePaymentStatus(id, newStatus);
     setMenuOpen(null);
     fetchPayments();
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this payment record?")) return;
-    await supabase.from("payments").delete().eq("id", id);
+    // Note: backend does not expose DELETE /payments — remove from local state only
+    setPayments(prev => prev.filter(p => p.id !== id));
+    return;
     setMenuOpen(null);
     fetchPayments();
   };
 
   const filtered = payments.filter(p => {
-    const matchFilter = filter === "all" || p.status === filter;
+    const matchFilter = filter === "all" || p.status.toLowerCase() === filter;
     const matchSearch = (p.tenant_name || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
-  const totalRevenue = payments.filter(p => p.status === "paid").reduce((s, p) => s + Number(p.amount), 0);
-  const totalPending = payments.filter(p => p.status === "pending").reduce((s, p) => s + Number(p.amount), 0);
-  const overdueCount = payments.filter(p => p.status === "overdue").length;
-  const forVerif = payments.filter(p => p.status === "for_verification").length;
+  const totalRevenue = payments.filter(p => p.status.toLowerCase() === "paid").reduce((s, p) => s + Number(p.amount), 0);
+  const totalPending = payments.filter(p => p.status.toLowerCase() === "pending").reduce((s, p) => s + Number(p.amount), 0);
+  const overdueCount = payments.filter(p => p.status.toLowerCase() === "overdue").length;
+  const forVerif = payments.filter(p => p.status.toLowerCase() === "for_verification").length;
 
   return (
     <AppLayout

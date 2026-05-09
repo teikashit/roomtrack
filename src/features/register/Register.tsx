@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { User } from "../../App";
-import supabase from "../../supabaseClient";
+import { api, setToken } from "../../apiClient";
 import "../login/Auth.css";
 
 interface RegisterProps {
@@ -22,15 +22,15 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
-    if (!firstName.trim())            e.firstName       = "First name is required.";
-    if (!lastName.trim())             e.lastName        = "Last name is required.";
-    if (!email.trim())                e.email           = "Email is required.";
-    else if (!email.includes("@"))    e.email           = "Please enter a valid email.";
-    if (!phone.trim())                e.phone           = "Phone number is required.";
-    if (!password)                    e.password        = "Password is required.";
-    else if (password.length < 6)     e.password        = "Password must be at least 6 characters.";
-    if (!confirmPassword)             e.confirmPassword = "Please confirm your password.";
-    else if (password !== confirmPassword) e.confirmPassword = "Passwords do not match.";
+    if (!firstName.trim())                     e.firstName       = "First name is required.";
+    if (!lastName.trim())                      e.lastName        = "Last name is required.";
+    if (!email.trim())                         e.email           = "Email is required.";
+    else if (!email.includes("@"))             e.email           = "Please enter a valid email.";
+    if (!phone.trim())                         e.phone           = "Phone number is required.";
+    if (!password)                             e.password        = "Password is required.";
+    else if (password.length < 6)              e.password        = "Password must be at least 6 characters.";
+    if (!confirmPassword)                      e.confirmPassword = "Please confirm your password.";
+    else if (password !== confirmPassword)     e.confirmPassword = "Passwords do not match.";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -40,61 +40,33 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
     if (!validate()) return;
     setLoading(true);
 
+    const full_name = `${firstName.trim()} ${lastName.trim()}`;
+
     try {
-      const { data, error: supabaseError } = await supabase.auth.signUp({
+      // Register the user
+      await api.register(email, password, full_name, phone, role);
+
+      // Then immediately login to get the token
+      const loginData = await api.login(email, password);
+      setToken(`${loginData.access_token}`);
+
+      onRegister({
+        id: loginData.user.id,
+        name: full_name,
         email,
-        password,
-        options: {
-          data: {
-            full_name: `${firstName} ${lastName}`,
-            phone: phone,
-            role: role,
-          },
-        },
+        role,
       });
-
-      if (supabaseError) {
-        if (supabaseError.message.includes("already registered") ||
-            supabaseError.message.includes("User already registered")) {
-          setGeneralError("This email is already registered. Please log in instead.");
-        } else if (supabaseError.message.includes("Password should be")) {
-          setGeneralError("Password must be at least 6 characters long.");
-        } else if (supabaseError.message.includes("Unable to validate email")) {
-          setGeneralError("Please enter a valid email address.");
-        } else if (supabaseError.message.includes("Too many requests")) {
-          setGeneralError("Too many attempts. Please wait a moment and try again.");
-        } else {
-          setGeneralError(supabaseError.message);
-        }
-        setLoading(false);
-        return;
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.toLowerCase().includes("already")) {
+        setGeneralError("This email is already registered. Please log in instead.");
+      } else if (msg.toLowerCase().includes("password")) {
+        setGeneralError("Password must be at least 6 characters long.");
+      } else if (msg.toLowerCase().includes("too many")) {
+        setGeneralError("Too many attempts. Please wait a moment and try again.");
+      } else {
+        setGeneralError("A server error occurred. Please try again later.");
       }
-
-      if (data.user) {
-        if (data.user.identities && data.user.identities.length === 0) {
-          setGeneralError("This email is already registered. Please log in instead.");
-          setLoading(false);
-          return;
-        }
-
-        // Save phone, role, full_name to profiles table immediately
-        await supabase.from("profiles").upsert({
-          id: data.user.id,
-          full_name: `${firstName} ${lastName}`,
-          phone: phone,
-          role: role,
-        });
-
-        onRegister({
-          id: data.user.id,
-          name: `${firstName} ${lastName}`,
-          email: email,
-          role: role,
-        });
-      }
-
-    } catch (err) {
-      setGeneralError("A server error occurred. Please try again later.");
     }
 
     setLoading(false);
@@ -149,7 +121,6 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
             </div>
           </div>
 
-          {/* Name Row */}
           <div className="form-row">
             <div className="form-group">
               <label>First name</label>
@@ -173,7 +144,6 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
             </div>
           </div>
 
-          {/* Email */}
           <div className="form-group">
             <label>Email address</label>
             <input
@@ -186,7 +156,6 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
             {errors.email && <span className="field-err">{errors.email}</span>}
           </div>
 
-          {/* Phone */}
           <div className="form-group">
             <label>Phone number</label>
             <input
@@ -199,7 +168,6 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
             {errors.phone && <span className="field-err">{errors.phone}</span>}
           </div>
 
-          {/* Passwords */}
           <div className="form-row">
             <div className="form-group">
               <label>Password</label>
@@ -225,11 +193,7 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
             </div>
           </div>
 
-          {generalError && (
-            <div className="form-error">
-              ⚠️ {generalError}
-            </div>
-          )}
+          {generalError && <div className="form-error">⚠️ {generalError}</div>}
 
           <button
             className={`btn-submit ${loading ? "loading" : ""}`}
@@ -250,4 +214,3 @@ function Register({ onRegister, onGoToLogin }: RegisterProps) {
 }
 
 export default Register;
-
