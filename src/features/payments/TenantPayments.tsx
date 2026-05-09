@@ -54,7 +54,7 @@ export default function TenantPayments({ user, onLogout, onGoToProfile, onGoToMy
     setLoading(false);
   };
 
-  useEffect(() => { fetchPayments(); }, [user.id]);
+  useEffect(() => { fetchPayments(); }, []);
 
   const pendingPayments = payments.filter(p => p.status !== "paid");
   const totalBalance = pendingPayments.reduce((s, p) => s + Number(p.amount), 0);
