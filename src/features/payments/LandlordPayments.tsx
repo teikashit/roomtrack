@@ -65,7 +65,7 @@ export default function LandlordPayments({ user, onLogout, onGoToProfile, onGoTo
     setLoading(true);
     const data = await api.getAllPayments();
     const sorted = [...data].sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
-    setPayments(sorted as Payment[]);
+    setPayments(sorted as any[]);
     setLoading(false);
   };
 
